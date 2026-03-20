@@ -29,6 +29,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from src.embeddings.service import EmbeddingService
     app.state.embeddings = EmbeddingService(model_name=settings.embedding_model)
 
+    # Initialize MCP server with SSE transport
+    from src.mcp.server import init_sse_transport
+    init_sse_transport(app.state.db_pool, app.state.embeddings)
+
     yield
 
     # Shutdown
@@ -57,12 +61,12 @@ def create_app() -> FastAPI:
     from src.rest.router import router as rest_router
     app.include_router(rest_router, prefix="/api/v1")
 
-    # Register MCP tools and SSE endpoint
+    # Register MCP tools and mount SSE transport
     from src.mcp.registry import register_all_tools
     register_all_tools()
 
-    from src.mcp.server import router as mcp_router
-    app.include_router(mcp_router, prefix="/mcp")
+    from src.mcp.server import mcp_mount
+    app.routes.append(mcp_mount)
 
     # Health check
     @app.get("/health")
