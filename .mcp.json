@@ -1,12 +1,11 @@
 {
     "mcpServers": {
         "semantic-canvas": {
-            "command": "python",
+            "command": "cmd.exe",
             "args": [
-                "-m",
-                "src.mcp.stdio_main"
-            ],
-            "cwd": "packages/api"
+                "/c",
+                "C:\\Users\\hyndh\\OneDrive\\Desktop\\semantic-canvas\\semantic-canvas\\packages\\api\\start_mcp.bat"
+            ]
         }
     }
 }
