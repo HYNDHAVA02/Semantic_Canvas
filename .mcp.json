@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "semantic-canvas": {
+            "command": "python",
+            "args": [
+                "-m",
+                "src.mcp.stdio_main"
+            ],
+            "cwd": "packages/api"
+        }
+    }
+}
