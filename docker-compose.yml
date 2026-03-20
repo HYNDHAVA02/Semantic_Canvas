@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: canvas
+      POSTGRES_PASSWORD: canvas
+      POSTGRES_DB: semantic_canvas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./packages/api/src/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canvas -d semantic_canvas"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://canvas:canvas@postgres:5432/semantic_canvas
+      REDIS_URL: redis://redis:6379
+      TASK_QUEUE_BACKEND: local
+      EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./packages/api/src:/app/src
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: packages/ingestion/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://canvas:canvas@postgres:5432/semantic_canvas
+      EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
+      CLONE_TIMEOUT: "120"
+      ANALYZE_TIMEOUT: "300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./packages/ingestion/src:/app/src
+
+volumes:
+  pgdata:

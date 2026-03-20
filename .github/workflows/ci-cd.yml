@@ -1,0 +1,175 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: asia-south1
+  REGISTRY: asia-south1-docker.pkg.dev
+
+jobs:
+  lint-and-test-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: canvas
+          POSTGRES_PASSWORD: canvas
+          POSTGRES_DB: semantic_canvas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U canvas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install API dependencies
+        run: pip install -r packages/api/requirements.txt
+
+      - name: Lint
+        run: cd packages/api && ruff check .
+
+      - name: Type check
+        run: cd packages/api && mypy src/
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://canvas:canvas@localhost:5432/semantic_canvas_test
+          REDIS_URL: redis://localhost:6379
+          TASK_QUEUE_BACKEND: local
+        run: cd packages/api && pytest
+
+  lint-and-test-ingestion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ingestion dependencies
+        run: pip install -r packages/ingestion/requirements.txt
+
+      - name: Lint
+        run: cd packages/ingestion && ruff check .
+
+      - name: Type check
+        run: cd packages/ingestion && mypy src/
+
+      - name: Run tests
+        run: cd packages/ingestion && pytest
+
+  lint-and-test-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install
+        run: cd packages/web && pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: cd packages/web && pnpm lint
+
+      - name: Type check
+        run: cd packages/web && pnpm typecheck
+
+      - name: Test
+        run: cd packages/web && pnpm test
+
+  deploy-api:
+    needs: [lint-and-test-api]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push API image
+        run: |
+          docker build -f packages/api/Dockerfile \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/api:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/api:latest \
+            .
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/api:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/api:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy semantic-canvas-api \
+            --image ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/api:${{ github.sha }} \
+            --region ${{ env.GCP_REGION }} \
+            --quiet
+
+  deploy-ingestion:
+    needs: [lint-and-test-ingestion]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push ingestion image
+        run: |
+          docker build -f packages/ingestion/Dockerfile \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/ingestion:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/ingestion:latest \
+            .
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/ingestion:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/ingestion:latest
+
+      - name: Update Cloud Run Job
+        run: |
+          gcloud run jobs update semantic-canvas-ingestion \
+            --image ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/semantic-canvas/ingestion:${{ github.sha }} \
+            --region ${{ env.GCP_REGION }} \
+            --quiet

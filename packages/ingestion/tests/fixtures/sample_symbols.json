@@ -1,0 +1,7 @@
+[
+  {"id": "sym_001", "name": "processOrder", "kind": "function", "file": "src/orders/process.ts", "line": 15, "language": "typescript", "complexity": 8, "is_exported": true, "community": 1, "is_dead": false},
+  {"id": "sym_002", "name": "validateCard", "kind": "function", "file": "src/payments/validate.ts", "line": 42, "language": "typescript", "complexity": 5, "is_exported": true, "community": 2, "is_dead": false},
+  {"id": "sym_003", "name": "OrderService", "kind": "class", "file": "src/orders/service.ts", "line": 1, "language": "typescript", "complexity": 12, "is_exported": true, "community": 1, "is_dead": false},
+  {"id": "sym_004", "name": "legacyHelper", "kind": "function", "file": "src/utils/legacy.ts", "line": 88, "language": "typescript", "complexity": 3, "is_exported": false, "community": null, "is_dead": true},
+  {"id": "sym_005", "name": "PaymentGateway", "kind": "class", "file": "src/payments/gateway.ts", "line": 1, "language": "typescript", "complexity": 15, "is_exported": true, "community": 2, "is_dead": false}
+]

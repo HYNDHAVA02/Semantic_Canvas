@@ -1,0 +1,5 @@
+[
+  {"from_id": "sym_001", "from_name": "processOrder", "from_kind": "function", "to_id": "sym_002", "to_name": "validateCard", "to_kind": "function", "file": "src/orders/process.ts", "line": 23},
+  {"from_id": "sym_003", "from_name": "OrderService", "from_kind": "class", "to_id": "sym_001", "to_name": "processOrder", "to_kind": "function", "file": "src/orders/service.ts", "line": 45},
+  {"from_id": "sym_003", "from_name": "OrderService", "from_kind": "class", "to_id": "sym_005", "to_name": "PaymentGateway", "to_kind": "class", "file": "src/orders/service.ts", "line": 67}
+]
