@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     cloud_tasks_location: str = ""
     ingestion_service_url: str = ""
 
+    # GitHub webhook
+    github_webhook_secret: str = ""
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 

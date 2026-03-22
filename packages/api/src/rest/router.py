@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter
 
+from src.rest.controllers.webhooks import router as webhooks_router
+
 router = APIRouter()
 
 
@@ -10,6 +12,8 @@ async def root() -> dict[str, str]:
     """API root — confirms the API is running."""
     return {"service": "semantic-canvas", "version": "0.1.0"}
 
+
+router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 
 # Sub-routers will be added as they're built:
 # from src.rest.controllers.entities import router as entities_router
