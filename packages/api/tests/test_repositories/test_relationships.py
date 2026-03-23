@@ -103,8 +103,9 @@ class TestRelationshipsRepository:
             to_entity_id=b["id"],
             kind="reads_from",
         )
-        results = await repo.list_by_project(project_id=test_project["id"])
+        results, total = await repo.list_by_project(project_id=test_project["id"])
         assert len(results) == 1
+        assert total == 1
         assert results[0]["from_entity_name"] == "AuthService"
         assert results[0]["to_entity_name"] == "UserDB"
 
@@ -128,10 +129,11 @@ class TestRelationshipsRepository:
             to_entity_id=b["id"],
             kind="calls",
         )
-        results = await repo.list_by_project(
+        results, total = await repo.list_by_project(
             project_id=test_project["id"], kind="calls"
         )
         assert len(results) == 1
+        assert total == 1
         assert results[0]["kind"] == "calls"
 
     async def test_list_for_entity_both_directions(

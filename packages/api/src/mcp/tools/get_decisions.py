@@ -30,11 +30,12 @@ async def handle_get_decisions(
     repo: DecisionsRepository,
 ) -> list[dict[str, Any]]:
     """List decisions in a project, optionally filtered by tag and source."""
-    return await repo.list_by_project(
+    rows, _total = await repo.list_by_project(
         project_id=params.project_id,
         tag=params.tag,
         source=params.source,
     )
+    return rows
 
 
 TOOL = ToolDefinition(

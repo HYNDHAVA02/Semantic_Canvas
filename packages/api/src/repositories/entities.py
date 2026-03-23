@@ -17,8 +17,10 @@ class EntitiesRepository(BaseRepository):
         kind: str | None = None,
         source: str | None = None,
         active_only: bool = True,
-    ) -> list[dict[str, Any]]:
-        """List entities, optionally filtered by kind and source."""
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List entities with SQL pagination. Returns (rows, total)."""
         conditions = ["project_id = $1"]
         params: list[Any] = [project_id]
         idx = 2
@@ -37,14 +39,24 @@ class EntitiesRepository(BaseRepository):
             conditions.append("is_active = true")
 
         where = " AND ".join(conditions)
+
+        total_row = await self._fetch_one(
+            f"SELECT count(*) AS cnt FROM entities WHERE {where}", *params
+        )
+        total = total_row["cnt"] if total_row else 0
+
+        params.append(limit)
+        params.append(offset)
         query = f"""
             SELECT id, name, kind, source, source_ref, metadata,
                    is_active, last_seen_at, created_at, updated_at
             FROM entities
             WHERE {where}
             ORDER BY name
+            LIMIT ${idx} OFFSET ${idx + 1}
         """
-        return await self._fetch_all(query, *params)
+        rows = await self._fetch_all(query, *params)
+        return rows, total
 
     async def get_by_name(
         self, project_id: UUID, name: str

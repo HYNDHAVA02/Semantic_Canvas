@@ -40,10 +40,11 @@ async def handle_get_relationships(
             kind=params.kind,
             direction=params.direction,
         )
-    return await repo.list_by_project(
+    rows, _total = await repo.list_by_project(
         project_id=params.project_id,
         kind=params.kind,
     )
+    return rows
 
 
 TOOL = ToolDefinition(

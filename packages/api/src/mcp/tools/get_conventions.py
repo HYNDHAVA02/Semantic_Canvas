@@ -30,11 +30,12 @@ async def handle_get_conventions(
     repo: ConventionsRepository,
 ) -> list[dict[str, Any]]:
     """List conventions in a project, optionally filtered by scope."""
-    return await repo.list_by_project(
+    rows, _total = await repo.list_by_project(
         project_id=params.project_id,
         scope=params.scope,
         active_only=params.active_only,
     )
+    return rows
 
 
 TOOL = ToolDefinition(

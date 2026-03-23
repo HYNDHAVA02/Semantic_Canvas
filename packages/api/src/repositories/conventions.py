@@ -16,8 +16,10 @@ class ConventionsRepository(BaseRepository):
         project_id: UUID,
         scope: str | None = None,
         active_only: bool = True,
-    ) -> list[dict[str, Any]]:
-        """List conventions, optionally filtered by scope and active status."""
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List conventions with SQL pagination. Returns (rows, total)."""
         conditions = ["project_id = $1"]
         params: list[Any] = [project_id]
         idx = 2
@@ -31,14 +33,24 @@ class ConventionsRepository(BaseRepository):
             conditions.append("is_active = true")
 
         where = " AND ".join(conditions)
+
+        total_row = await self._fetch_one(
+            f"SELECT count(*) AS cnt FROM conventions WHERE {where}", *params
+        )
+        total = total_row["cnt"] if total_row else 0
+
+        params.append(limit)
+        params.append(offset)
         query = f"""
             SELECT id, title, body, scope, source, source_ref,
                    tags, is_active, created_at, updated_at
             FROM conventions
             WHERE {where}
             ORDER BY title
+            LIMIT ${idx} OFFSET ${idx + 1}
         """
-        return await self._fetch_all(query, *params)
+        rows = await self._fetch_all(query, *params)
+        return rows, total
 
     async def create(
         self,
@@ -72,3 +84,37 @@ class ConventionsRepository(BaseRepository):
             _to_pgvector(embedding),
         )
         return row  # type: ignore[return-value]
+
+    async def update(
+        self,
+        conv_id: UUID,
+        **fields: Any,
+    ) -> dict[str, Any] | None:
+        """Partial update of a convention."""
+        allowed = {"title", "body", "scope", "is_active", "tags"}
+        updates = {k: v for k, v in fields.items() if k in allowed}
+        if not updates:
+            return await self._fetch_one(
+                "SELECT id, title, body, scope, source, tags, is_active, "
+                "created_at, updated_at FROM conventions WHERE id = $1",
+                conv_id,
+            )
+
+        set_clauses = []
+        params: list[Any] = []
+        for i, (col, val) in enumerate(updates.items(), start=1):
+            set_clauses.append(f"{col} = ${i}")
+            params.append(val)
+
+        params.append(conv_id)
+        idx = len(params)
+
+        return await self._fetch_one(
+            f"""
+            UPDATE conventions SET {', '.join(set_clauses)}, updated_at = now()
+            WHERE id = ${idx}
+            RETURNING id, title, body, scope, source, tags, is_active,
+                      created_at, updated_at
+            """,
+            *params,
+        )

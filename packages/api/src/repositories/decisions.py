@@ -16,8 +16,10 @@ class DecisionsRepository(BaseRepository):
         project_id: UUID,
         tag: str | None = None,
         source: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """List decisions, optionally filtered by tag and source."""
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List decisions with SQL pagination. Returns (rows, total)."""
         conditions = ["project_id = $1"]
         params: list[Any] = [project_id]
         idx = 2
@@ -33,6 +35,14 @@ class DecisionsRepository(BaseRepository):
             idx += 1
 
         where = " AND ".join(conditions)
+
+        total_row = await self._fetch_one(
+            f"SELECT count(*) AS cnt FROM decisions WHERE {where}", *params
+        )
+        total = total_row["cnt"] if total_row else 0
+
+        params.append(limit)
+        params.append(offset)
         query = f"""
             SELECT id, title, body, decided_by, decided_at,
                    entity_ids, source, source_ref, tags,
@@ -40,8 +50,10 @@ class DecisionsRepository(BaseRepository):
             FROM decisions
             WHERE {where}
             ORDER BY decided_at DESC NULLS LAST, created_at DESC
+            LIMIT ${idx} OFFSET ${idx + 1}
         """
-        return await self._fetch_all(query, *params)
+        rows = await self._fetch_all(query, *params)
+        return rows, total
 
     async def create(
         self,

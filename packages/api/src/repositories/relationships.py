@@ -32,8 +32,10 @@ class RelationshipsRepository(BaseRepository):
         project_id: UUID,
         kind: str | None = None,
         source: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """List relationships in a project, optionally filtered."""
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List relationships with SQL pagination. Returns (rows, total)."""
         conditions = ["r.project_id = $1"]
         params: list[Any] = [project_id]
         idx = 2
@@ -49,8 +51,20 @@ class RelationshipsRepository(BaseRepository):
             idx += 1
 
         where = " AND ".join(conditions)
-        query = f"SELECT {_SELECT_COLS} {_JOIN} WHERE {where} ORDER BY fe.name, te.name"
-        return await self._fetch_all(query, *params)
+
+        total_row = await self._fetch_one(
+            f"SELECT count(*) AS cnt {_JOIN} WHERE {where}", *params
+        )
+        total = total_row["cnt"] if total_row else 0
+
+        params.append(limit)
+        params.append(offset)
+        query = (
+            f"SELECT {_SELECT_COLS} {_JOIN} WHERE {where} "
+            f"ORDER BY fe.name, te.name LIMIT ${idx} OFFSET ${idx + 1}"
+        )
+        rows = await self._fetch_all(query, *params)
+        return rows, total
 
     async def list_for_entity(
         self,

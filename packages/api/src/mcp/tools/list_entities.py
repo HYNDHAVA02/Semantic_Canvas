@@ -34,12 +34,13 @@ async def handle_list_entities(
     repo: EntitiesRepository,
 ) -> list[dict[str, Any]]:
     """List entities in a project, optionally filtered by kind and source."""
-    return await repo.list_by_project(
+    rows, _total = await repo.list_by_project(
         project_id=params.project_id,
         kind=params.kind,
         source=params.source,
         active_only=params.active_only,
     )
+    return rows
 
 
 TOOL = ToolDefinition(

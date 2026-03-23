@@ -67,20 +67,23 @@ class TestEntitiesRepository:
             project_id=test_project["id"], name="users", kind="table"
         )
 
-        all_entities = await repo.list_by_project(test_project["id"])
+        all_entities, total = await repo.list_by_project(test_project["id"])
         assert len(all_entities) == 3
+        assert total == 3
 
-        services_only = await repo.list_by_project(
+        services_only, svc_total = await repo.list_by_project(
             test_project["id"], kind="service"
         )
         assert len(services_only) == 2
+        assert svc_total == 2
 
     async def test_list_empty_project(
         self, repo: EntitiesRepository, test_project: dict
     ) -> None:
         """List on empty project returns empty list, not error."""
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert result == []
+        assert total == 0
 
     async def test_get_by_name(
         self, repo: EntitiesRepository, test_project: dict

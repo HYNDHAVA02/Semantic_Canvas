@@ -15,10 +15,11 @@ class ActivityRepository(BaseRepository):
         self,
         project_id: UUID,
         limit: int = 50,
+        offset: int = 0,
         source: str | None = None,
         actor: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """List recent activity, optionally filtered by source and actor."""
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List recent activity with SQL pagination. Returns (rows, total)."""
         conditions = ["project_id = $1"]
         params: list[Any] = [project_id]
         idx = 2
@@ -34,16 +35,24 @@ class ActivityRepository(BaseRepository):
             idx += 1
 
         where = " AND ".join(conditions)
+
+        total_row = await self._fetch_one(
+            f"SELECT count(*) AS cnt FROM activity_log WHERE {where}", *params
+        )
+        total = total_row["cnt"] if total_row else 0
+
+        params.append(limit)
+        params.append(offset)
         query = f"""
             SELECT id, summary, detail, entity_ids, source,
                    source_ref, actor, occurred_at, created_at
             FROM activity_log
             WHERE {where}
             ORDER BY occurred_at DESC
-            LIMIT ${idx}
+            LIMIT ${idx} OFFSET ${idx + 1}
         """
-        params.append(limit)
-        return await self._fetch_all(query, *params)
+        rows = await self._fetch_all(query, *params)
+        return rows, total
 
     async def create(
         self,

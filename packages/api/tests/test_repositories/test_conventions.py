@@ -34,8 +34,9 @@ class TestConventionsRepository:
             scope="frontend",
         )
 
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert len(result) == 2
+        assert total == 2
         titles = [c["title"] for c in result]
         assert "Always use type hints" in titles
 
@@ -56,8 +57,9 @@ class TestConventionsRepository:
             scope="frontend",
         )
 
-        result = await repo.list_by_project(test_project["id"], scope="backend")
+        result, total = await repo.list_by_project(test_project["id"], scope="backend")
         assert len(result) == 1
+        assert total == 1
         assert result[0]["title"] == "Backend convention"
 
     async def test_active_only_filter(
@@ -78,17 +80,20 @@ class TestConventionsRepository:
         )
 
         # Default: only active
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert len(result) == 1
+        assert total == 1
         assert result[0]["title"] == "Active rule"
 
         # Include inactive
-        result = await repo.list_by_project(test_project["id"], active_only=False)
+        result, total = await repo.list_by_project(test_project["id"], active_only=False)
         assert len(result) == 2
+        assert total == 2
 
     async def test_empty_project(
         self, repo: ConventionsRepository, test_project: dict
     ) -> None:
         """List on empty project returns empty list."""
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert result == []
+        assert total == 0

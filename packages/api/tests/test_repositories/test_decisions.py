@@ -36,8 +36,9 @@ class TestDecisionsRepository:
             tags=["backend", "framework"],
         )
 
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert len(result) == 2
+        assert total == 2
         titles = [d["title"] for d in result]
         assert "Use PostgreSQL over MongoDB" in titles
         assert "Use FastAPI over Flask" in titles
@@ -59,8 +60,9 @@ class TestDecisionsRepository:
             tags=["backend"],
         )
 
-        result = await repo.list_by_project(test_project["id"], tag="database")
+        result, total = await repo.list_by_project(test_project["id"], tag="database")
         assert len(result) == 1
+        assert total == 1
         assert result[0]["title"] == "Use PostgreSQL"
 
     async def test_filter_by_source(
@@ -80,13 +82,15 @@ class TestDecisionsRepository:
             source="agent",
         )
 
-        result = await repo.list_by_project(test_project["id"], source="agent")
+        result, total = await repo.list_by_project(test_project["id"], source="agent")
         assert len(result) == 1
+        assert total == 1
         assert result[0]["title"] == "Agent decision"
 
     async def test_empty_project(
         self, repo: DecisionsRepository, test_project: dict
     ) -> None:
         """List on empty project returns empty list."""
-        result = await repo.list_by_project(test_project["id"])
+        result, total = await repo.list_by_project(test_project["id"])
         assert result == []
+        assert total == 0

@@ -34,12 +34,13 @@ async def handle_get_recent_activity(
     repo: ActivityRepository,
 ) -> list[dict[str, Any]]:
     """List recent activity in a project, optionally filtered by source and actor."""
-    return await repo.list_recent(
+    rows, _total = await repo.list_recent(
         project_id=params.project_id,
         limit=params.limit,
         source=params.source,
         actor=params.actor,
     )
+    return rows
 
 
 TOOL = ToolDefinition(
