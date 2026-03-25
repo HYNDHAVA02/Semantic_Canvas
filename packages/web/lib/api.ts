@@ -17,6 +17,9 @@ export async function fetchApi<T = any>(endpoint: string, options?: RequestInit)
 }
 
 export const api = {
+  getProjects: (limit = 50, offset = 0) => fetchApi(`/projects?limit=${limit}&offset=${offset}`),
+  createProject: (data: { name: string; slug: string; description?: string; repo_url?: string; default_branch?: string }) =>
+    fetchApi(`/projects`, { method: "POST", body: JSON.stringify(data) }),
   getProject: (id: string) => fetchApi(`/projects/${id}`),
   updateProject: (id: string, data: any) => fetchApi(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   getProjectEntities: (id: string, limit = 100) => fetchApi(`/projects/${id}/entities?limit=${limit}`),

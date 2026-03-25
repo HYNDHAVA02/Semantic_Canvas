@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, use } from "react";
+import AuthGuard from "@/components/auth-guard";
+import { useAuth } from "@/lib/auth-context";
 
 export default function ProjectLayout(props: {
   children: ReactNode;
@@ -12,6 +14,9 @@ export default function ProjectLayout(props: {
   const pathname = usePathname();
   const params = use(props.params);
   const projectId = params.projectId || "403f22ef-a063-42d3-bf6e-8c529eb05c0b";
+  const { user, signOut } = useAuth();
+  const userEmail = user && "email" in user ? user.email : null;
+  const userInitial = userEmail ? userEmail[0].toUpperCase() : "U";
 
   const navigation = [
     { name: "Overview", href: `/projects/${projectId}`, icon: "dashboard" },
@@ -35,7 +40,7 @@ export default function ProjectLayout(props: {
   ];
 
   return (
-    <>
+    <AuthGuard>
       <nav className="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface-container-low flex-col py-6 gap-1 z-50 overflow-y-auto">
         <div className="px-6 mb-8">
           <span className="text-xl font-bold tracking-tighter text-on-surface">Semantic Canvas</span>
@@ -71,6 +76,18 @@ export default function ProjectLayout(props: {
               </Link>
             );
           })}
+          {userEmail && (
+            <div className="mx-2 mt-2 pt-2 border-t border-outline-variant/10">
+              <div className="px-3 py-1 text-xs text-on-surface-variant truncate">{userEmail}</div>
+              <button
+                onClick={signOut}
+                className="w-full px-3 py-2 font-['Inter'] tracking-tight text-sm font-medium flex items-center gap-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 rounded-md transition-colors duration-150"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -83,7 +100,7 @@ export default function ProjectLayout(props: {
           <Link href={`/projects/${projectId}/search`}>
             <span className="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer transition">search</span>
           </Link>
-          <div className="h-8 w-8 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center text-xs font-bold text-primary">SC</div>
+          <div className="h-8 w-8 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center text-xs font-bold text-primary">{userInitial}</div>
         </div>
       </header>
 
@@ -102,6 +119,6 @@ export default function ProjectLayout(props: {
           );
         })}
       </nav>
-    </>
+    </AuthGuard>
   );
 }

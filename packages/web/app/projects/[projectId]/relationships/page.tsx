@@ -6,13 +6,16 @@ import { useState, use } from "react";
 import { GitFork, Plus, X, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
-const KINDS = ["All", "Calls", "Depends On", "Reads From", "Imports", "Inherits"];
-const KIND_VALUES: Record<string, string> = {
-  "Calls": "calls",
-  "Depends On": "depends_on",
-  "Reads From": "reads_from",
-  "Imports": "imports",
-  "Inherits": "inherits",
+// Display labels for known relationship kinds
+const KIND_LABELS: Record<string, string> = {
+  calls: "Calls",
+  depends_on: "Depends On",
+  reads_from: "Reads From",
+  imports: "Imports",
+  inherits: "Inherits",
+  implements: "Implements",
+  owns: "Owns",
+  writes_to: "Writes To",
 };
 
 const kindColors: Record<string, string> = {
@@ -45,9 +48,18 @@ export default function RelationshipsPage(props: { params: Promise<{ projectId: 
   const relationships = relationshipsRes?.data || [];
   const entities = entitiesRes?.data || [];
 
+  // Build filter options dynamically from the actual data
+  const distinctKinds: string[] = [...new Set<string>(relationships.map((r: any) => String(r.kind)))].sort();
+  const filterOptions = ["All", ...distinctKinds.map((k: string) => KIND_LABELS[k] || k)];
+  // Reverse lookup: display label → raw kind value
+  const labelToValue: Record<string, string> = {};
+  for (const k of distinctKinds) {
+    labelToValue[KIND_LABELS[k] || k] = k;
+  }
+
   const filteredRelationships = kindFilter === "All"
     ? relationships
-    : relationships.filter((r: any) => r.kind === KIND_VALUES[kindFilter]);
+    : relationships.filter((r: any) => r.kind === labelToValue[kindFilter]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.createRelationship(projectId, data),
@@ -115,7 +127,7 @@ export default function RelationshipsPage(props: { params: Promise<{ projectId: 
               onChange={(e) => setFormData({ ...formData, kind: e.target.value })}
               className="px-4 py-2 bg-surface-container border border-outline-variant/10 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary text-on-surface"
             >
-              {Object.entries(KIND_VALUES).map(([label, value]) => (
+              {Object.entries(KIND_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
@@ -132,7 +144,7 @@ export default function RelationshipsPage(props: { params: Promise<{ projectId: 
 
       {/* Kind Filter */}
       <div className="flex flex-wrap items-center gap-2 p-1 bg-surface-container-low rounded-lg border border-outline-variant/10 w-fit shrink-0 max-w-full overflow-auto">
-        {KINDS.map((k) => (
+        {filterOptions.map((k) => (
           <button
             key={k}
             onClick={() => setKindFilter(k)}
