@@ -122,6 +122,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Optional auth — validates tokens if present, allows anonymous otherwise
+    from src.auth.middleware import OptionalAuthMiddleware
+    app.add_middleware(OptionalAuthMiddleware)
+
     # Register REST routes
     from src.rest.router import router as rest_router
     app.include_router(rest_router, prefix="/api/v1")

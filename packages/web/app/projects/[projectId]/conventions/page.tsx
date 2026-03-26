@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useState, use } from "react";
 import { Ruler, Plus, X, Check, XCircle } from "lucide-react";
+import QueryError from "@/components/query-error";
 
 export default function ConventionsPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
@@ -16,10 +17,12 @@ export default function ConventionsPage(props: { params: Promise<{ projectId: st
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ title: "", body: "", scope: "Global", tags: "" });
 
-  const { data: conventionsRes, isLoading } = useQuery({
+  const { data: conventionsRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "conventions"],
     queryFn: () => api.getProjectConventions(projectId),
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const conventions = Array.isArray(conventionsRes?.data) ? conventionsRes.data : (Array.isArray(conventionsRes) ? conventionsRes : []);
 

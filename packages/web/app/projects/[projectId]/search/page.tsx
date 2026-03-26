@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useState, useEffect, use } from "react";
 import { Search as SearchIcon, X, ChevronDown, ChevronUp, FileText, Database, Gavel, History, Ruler } from "lucide-react";
 import Link from "next/link";
+import QueryError from "@/components/query-error";
 
 export default function SearchPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
@@ -24,11 +25,13 @@ export default function SearchPage(props: { params: Promise<{ projectId: string 
     return () => clearTimeout(handler);
   }, [query]);
 
-  const { data: searchRes, isFetching, isLoading } = useQuery({
+  const { data: searchRes, isFetching, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "search", debouncedQuery],
     queryFn: () => api.searchProject(projectId, debouncedQuery),
     enabled: debouncedQuery.length > 0,
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const rawResults = searchRes?.data || searchRes || [];
   

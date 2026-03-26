@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useState, use } from "react";
 import { GitFork, Plus, X, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import QueryError from "@/components/query-error";
 
 // Display labels for known relationship kinds
 const KIND_LABELS: Record<string, string> = {
@@ -35,10 +36,12 @@ export default function RelationshipsPage(props: { params: Promise<{ projectId: 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ from_entity_id: "", to_entity_id: "", kind: "calls" });
 
-  const { data: relationshipsRes, isLoading } = useQuery({
+  const { data: relationshipsRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "relationships"],
     queryFn: () => api.getProjectRelationships(projectId),
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const { data: entitiesRes } = useQuery({
     queryKey: ["project", projectId, "entities", 1000],

@@ -6,17 +6,19 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Search } from "lucide-react";
+import QueryError from "@/components/query-error";
 
 export default function EntitiesListPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
   const projectId = params.projectId;
   const [kindFilter, setKindFilter] = useState("All");
 
-  const { data: entitiesRes, isLoading } = useQuery({
+  const { data: entitiesRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "entities", 1000],
-    // Passing a large limit to grab all for client filtering, or use default 100
     queryFn: () => api.getProjectEntities(projectId, 1000),
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const entities = entitiesRes?.data || [];
   

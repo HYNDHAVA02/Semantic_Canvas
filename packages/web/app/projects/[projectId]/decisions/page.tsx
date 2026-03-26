@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useState, use } from "react";
 import { Gavel, Plus, X } from "lucide-react";
+import QueryError from "@/components/query-error";
 
 export default function DecisionsPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
@@ -15,10 +16,12 @@ export default function DecisionsPage(props: { params: Promise<{ projectId: stri
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ title: "", body: "", tags: "", decidedBy: "" });
 
-  const { data: decisionsRes, isLoading } = useQuery({
+  const { data: decisionsRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "decisions"],
     queryFn: () => api.getProjectDecisions(projectId, 100),
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const decisions = Array.isArray(decisionsRes?.data) ? decisionsRes.data : (Array.isArray(decisionsRes) ? decisionsRes : []);
 
