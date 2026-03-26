@@ -7,11 +7,39 @@ import logging
 from uuid import UUID
 
 import asyncpg
+from fastembed import TextEmbedding
 
 from src.config import settings
 from src.mapper import MappedEntity, MappedRelationship
 
 logger = logging.getLogger(__name__)
+
+# Lazy-loaded singleton so the model is only downloaded/loaded once per process.
+_embedding_model: TextEmbedding | None = None
+
+
+def _get_embedding_model() -> TextEmbedding:
+    """Return the shared TextEmbedding model, loading it on first call."""
+    global _embedding_model  # noqa: PLW0603
+    if _embedding_model is None:
+        logger.info("Loading embedding model: %s", settings.embedding_model)
+        _embedding_model = TextEmbedding(settings.embedding_model)
+        logger.info("Embedding model loaded")
+    return _embedding_model
+
+
+def _build_embedding_text(entity: MappedEntity) -> str:
+    """Build the text string used to generate an entity's embedding."""
+    file_path = entity.metadata.get("file", "")
+    return f"{entity.name} {entity.kind} {file_path}"
+
+
+def _generate_embeddings(entities: list[MappedEntity]) -> list[list[float]]:
+    """Generate embeddings for a batch of entities."""
+    model = _get_embedding_model()
+    texts = [_build_embedding_text(e) for e in entities]
+    results = list(model.embed(texts))
+    return [r.tolist() for r in results]
 
 
 async def upsert_to_postgres(
@@ -24,19 +52,27 @@ async def upsert_to_postgres(
     pid = UUID(project_id)
 
     try:
+        # Generate embeddings for all entities in one batch
+        logger.info("Generating embeddings for %d entities...", len(entities))
+        embeddings = _generate_embeddings(entities)
+        logger.info("Embeddings generated")
+
         # Build axon_id → entity UUID mapping
         axon_id_to_entity_id: dict[str, UUID] = {}
 
-        # Upsert entities
-        for entity in entities:
+        # Upsert entities with embeddings
+        for entity, embedding in zip(entities, embeddings):
+            # pgvector expects a string like '[0.1, 0.2, ...]'
+            embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
             row = await conn.fetchrow(
                 """
-                INSERT INTO entities (project_id, name, kind, source, source_ref, metadata, last_seen_at, updated_at)
-                VALUES ($1, $2, $3, 'axon', $4, $5::jsonb, now(), now())
+                INSERT INTO entities (project_id, name, kind, source, source_ref, metadata, embedding, last_seen_at, updated_at)
+                VALUES ($1, $2, $3, 'axon', $4, $5::jsonb, $6::vector, now(), now())
                 ON CONFLICT (project_id, name, kind)
                 DO UPDATE SET
                     source_ref = COALESCE(EXCLUDED.source_ref, entities.source_ref),
                     metadata = entities.metadata || EXCLUDED.metadata,
+                    embedding = EXCLUDED.embedding,
                     last_seen_at = now(),
                     updated_at = now(),
                     is_active = true
@@ -47,6 +83,7 @@ async def upsert_to_postgres(
                 entity.kind,
                 entity.source_ref,
                 json.dumps(entity.metadata),
+                embedding_str,
             )
             axon_id_to_entity_id[entity.axon_id] = row["id"]
 

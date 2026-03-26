@@ -1,7 +1,13 @@
 """Semantic Canvas API — FastAPI application factory."""
 
-from contextlib import asynccontextmanager
+import asyncio
+import json
+import logging
+import os
+import sys
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 import asyncpg
 import redis.asyncio as aioredis
@@ -9,13 +15,53 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
-from src.tasks.queue import create_task_queue, LocalTaskQueue
+from src.tasks.queue import LocalTaskQueue, create_task_queue
+
+logger = logging.getLogger(__name__)
+
+# Path to ingestion package (sibling of packages/api/)
+_INGESTION_PKG_DIR = Path(__file__).resolve().parents[2] / "ingestion"
 
 
-async def _noop_axon_ingest(payload: dict) -> None:  # type: ignore[type-arg]
-    """Stub handler for axon_ingest tasks in local dev."""
-    import logging
-    logging.getLogger(__name__).info("axon_ingest stub called: %s", payload)
+async def _local_axon_ingest(payload: dict[str, object]) -> None:
+    """Run the ingestion pipeline as a subprocess.
+
+    Spawns ``python -m src.main <json_payload>`` inside packages/ingestion/,
+    forwarding DATABASE_URL and EMBEDDING_MODEL from the API environment.
+    This mirrors production where ingestion runs as a separate Cloud Run service.
+    """
+    payload_json = json.dumps(payload)
+    # Use the same Python interpreter running the API so that the ingestion
+    # subprocess inherits the venv. Prepend its directory to PATH so that
+    # sibling CLI tools (axon) installed in the same venv are also found.
+    python_exe = sys.executable
+    venv_bin_dir = str(Path(python_exe).parent)
+    env = {
+        **os.environ,
+        "PATH": venv_bin_dir + os.pathsep + os.environ.get("PATH", ""),
+        "DATABASE_URL": settings.database_url,
+        "EMBEDDING_MODEL": settings.embedding_model,
+    }
+
+    logger.info("Spawning ingestion subprocess for payload: %s", payload_json)
+    proc = await asyncio.create_subprocess_exec(
+        python_exe, "-m", "src.main", payload_json,
+        cwd=str(_INGESTION_PKG_DIR),
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+
+    if stdout:
+        logger.info("Ingestion stdout:\n%s", stdout.decode())
+    if stderr:
+        logger.warning("Ingestion stderr:\n%s", stderr.decode())
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"Ingestion subprocess exited with code {proc.returncode}: "
+            f"{stderr.decode()}"
+        )
 
 
 @asynccontextmanager
@@ -41,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ingestion_service_url=settings.ingestion_service_url,
     )
     if isinstance(task_queue, LocalTaskQueue):
-        task_queue.register("axon_ingest", _noop_axon_ingest)
+        task_queue.register("axon_ingest", _local_axon_ingest)
     app.state.task_queue = task_queue
 
     # Pre-warm embedding model (avoids cold-start latency on first request)
@@ -75,6 +121,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Optional auth — validates tokens if present, allows anonymous otherwise
+    from src.auth.middleware import OptionalAuthMiddleware
+    app.add_middleware(OptionalAuthMiddleware)
 
     # Register REST routes
     from src.rest.router import router as rest_router

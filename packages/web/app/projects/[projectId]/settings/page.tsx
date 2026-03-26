@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useState, use } from "react";
-import { Copy, CheckCircle2, Terminal, Key, Settings as SettingsIcon, Plus, AlertCircle } from "lucide-react";
+import { Copy, CheckCircle2, Terminal, Key, Settings as SettingsIcon, Plus, AlertCircle, Webhook } from "lucide-react";
 
 // Minimal toast using state for simplicity
 export default function SettingsPage(props: { params: Promise<{ projectId: string }> }) {
@@ -249,7 +249,46 @@ export default function SettingsPage(props: { params: Promise<{ projectId: strin
         </div>
       </section>
 
-      {/* Section 3: Project Settings */}
+      {/* Section 3: GitHub Webhook */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-on-surface font-bold text-xl tracking-tight">
+          <Webhook className="w-5 h-5 text-secondary" />
+          <h2>GitHub Webhook</h2>
+        </div>
+        <p className="text-sm text-on-surface-variant leading-relaxed max-w-2xl">
+          Add this URL as a webhook in your GitHub repo settings to trigger automatic ingestion on push events.
+        </p>
+        <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 p-6 space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Webhook URL</label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-4 py-2.5 bg-surface-container border border-outline-variant/10 rounded-lg text-sm font-mono text-on-surface break-all">
+                {(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "") + "/webhooks/github"}
+              </code>
+              <button
+                onClick={() => {
+                  copyToClipboard((process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "") + "/webhooks/github");
+                }}
+                className="px-3 py-2.5 bg-surface-container border border-outline-variant/10 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div className="bg-surface-container rounded-lg border border-outline-variant/5 p-4 space-y-2 text-sm text-on-surface-variant">
+            <p className="font-medium text-on-surface">Setup instructions:</p>
+            <ol className="list-decimal list-inside space-y-1 text-xs">
+              <li>Go to your GitHub repo &rarr; Settings &rarr; Webhooks &rarr; Add webhook</li>
+              <li>Paste the URL above into the <strong>Payload URL</strong> field</li>
+              <li>Set <strong>Content type</strong> to <code className="px-1 py-0.5 bg-surface-container-highest rounded text-on-surface">application/json</code></li>
+              <li>Enter your webhook secret (must match <code className="px-1 py-0.5 bg-surface-container-highest rounded text-on-surface">GITHUB_WEBHOOK_SECRET</code> env var on the API)</li>
+              <li>Select &ldquo;Just the push event&rdquo; and save</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 4: Project Settings */}
       <section className="space-y-6">
         <div className="flex items-center gap-2 text-on-surface font-bold text-xl tracking-tight">
           <SettingsIcon className="w-5 h-5 text-primary" />

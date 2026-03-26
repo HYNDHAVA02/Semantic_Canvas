@@ -160,43 +160,7 @@ export default function EntityDetailPage(props: { params: Promise<{ projectId: s
 
         {showBlastRadius && (
           <div className="pt-2">
-            {!blastLoading && blastRadiusRes?.data ? (
-              <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
-                {/* Dynamically structure the graph depth. E.g if api returns { nodes: [], edges: [] } or a specific grouped shape */}
-                {Array.from({ length: 3 }).map((_, depthIndex) => {
-                  const depth = depthIndex + 1;
-                  // Extremely basic mock grouping for the visual. The API usually returns nodes with a depth attribute, OR we assume blastRadiusRes.data has specific depths.
-                  // We simulate filtering nodes by depth if available natively. 
-                  const nodesAtDepth = (blastRadiusRes.data.nodes || blastRadiusRes.data || []).filter((n: any) => n.depth === depth || (depth === 1 && !n.depth));
-                  
-                  if (nodesAtDepth.length === 0 && depth > 1) return null; // hide empty further depths
-
-                  return (
-                    <div key={depth} className="relative">
-                      {depth > 1 && (
-                        <div className="absolute -top-6 left-6 w-0.5 h-6 bg-outline-variant/30" />
-                      )}
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className="w-6 h-6 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center text-xs font-bold text-on-surface-variant shadow-sm z-10">
-                          {depth}
-                        </span>
-                        <h4 className="text-sm font-bold text-on-surface">Degree {depth} Impact</h4>
-                      </div>
-                      <div className="ml-3 pl-6 border-l-2 border-outline-variant/10 gap-2 flex flex-wrap">
-                        {nodesAtDepth.length > 0 ? nodesAtDepth.map((n: any, idx: number) => (
-                           <Link key={idx} href={`/projects/${projectId}/entities/${n.id || n.name}`} className="px-3 py-1.5 bg-surface-container rounded-md border border-outline-variant/10 text-xs font-medium hover:bg-surface-container-highest transition-colors flex items-center gap-2">
-                             <Layers className="w-3 h-3 text-tertiary" />
-                             {n.name || n.id}
-                           </Link>
-                        )) : (
-                           <div className="text-xs text-on-surface-variant italic px-3 py-1.5">No further propagation boundaries identified.</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : blastLoading ? (
+            {blastLoading ? (
                <div className="h-32 flex items-center justify-center text-on-surface-variant">
                  <div className="flex items-center gap-2 animate-pulse">
                    <div className="w-2 h-2 rounded-full bg-tertiary" />
@@ -204,7 +168,71 @@ export default function EntityDetailPage(props: { params: Promise<{ projectId: s
                    <div className="w-2 h-2 rounded-full bg-tertiary animation-delay-400" />
                  </div>
                </div>
-            ) : (
+            ) : blastRadiusRes ? (() => {
+              // API returns { forward: [...], reverse: [...] } with depth on each node
+              const allNodes = [
+                ...(blastRadiusRes.forward || []),
+                ...(blastRadiusRes.reverse || []),
+              ];
+              // Deduplicate by id, keeping the entry with smallest depth
+              const seen = new Map<string, any>();
+              for (const n of allNodes) {
+                const key = n.id || n.name;
+                if (!seen.has(key) || n.depth < seen.get(key).depth) {
+                  seen.set(key, n);
+                }
+              }
+              const uniqueNodes = Array.from(seen.values());
+              const maxDepth = uniqueNodes.length > 0
+                ? Math.max(...uniqueNodes.map((n: any) => n.depth || 1))
+                : 0;
+
+              if (uniqueNodes.length === 0) {
+                return (
+                  <div className="text-sm text-on-surface-variant p-4 text-center">
+                    No impact detected — this entity has no relationships.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex gap-6 text-sm text-on-surface-variant mb-2">
+                    <span>Forward impact: <strong className="text-on-surface">{(blastRadiusRes.forward || []).length}</strong></span>
+                    <span>Reverse impact: <strong className="text-on-surface">{(blastRadiusRes.reverse || []).length}</strong></span>
+                    <span>Total unique: <strong className="text-on-surface">{uniqueNodes.length}</strong></span>
+                  </div>
+                  {Array.from({ length: maxDepth }).map((_, depthIndex) => {
+                    const depth = depthIndex + 1;
+                    const nodesAtDepth = uniqueNodes.filter((n: any) => n.depth === depth);
+
+                    if (nodesAtDepth.length === 0) return null;
+
+                    return (
+                      <div key={depth} className="relative">
+                        {depth > 1 && (
+                          <div className="absolute -top-6 left-6 w-0.5 h-6 bg-outline-variant/30" />
+                        )}
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="w-6 h-6 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center text-xs font-bold text-on-surface-variant shadow-sm z-10">
+                            {depth}
+                          </span>
+                          <h4 className="text-sm font-bold text-on-surface">Degree {depth} Impact ({nodesAtDepth.length})</h4>
+                        </div>
+                        <div className="ml-3 pl-6 border-l-2 border-outline-variant/10 gap-2 flex flex-wrap">
+                          {nodesAtDepth.map((n: any, idx: number) => (
+                            <Link key={idx} href={`/projects/${projectId}/entities/${n.id || n.name}`} className="px-3 py-1.5 bg-surface-container rounded-md border border-outline-variant/10 text-xs font-medium hover:bg-surface-container-highest transition-colors flex items-center gap-2">
+                              <Layers className="w-3 h-3 text-tertiary" />
+                              {n.name || n.id}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })() : (
                <div className="text-sm text-on-surface-variant p-4 text-center">Failed to load analysis graph results.</div>
             )}
           </div>

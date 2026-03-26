@@ -4,12 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { use } from "react";
+import QueryError from "@/components/query-error";
 
 export default function ProjectOverviewPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
   const projectId = params.projectId;
 
-  const { data: project, isLoading: prjLoading } = useQuery({
+  const { data: project, isLoading: prjLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => api.getProject(projectId),
   });
@@ -41,6 +42,10 @@ export default function ProjectOverviewPage(props: { params: Promise<{ projectId
   const totalEntities = (entities?.data || []).length;
   // If no entities yet (empty state case)
   const isDataEmpty = !isLoading && totalEntities === 0;
+
+  if (isError) {
+    return <QueryError message={(error as Error)?.message} retry={refetch} />;
+  }
 
   if (isLoading) {
     return (

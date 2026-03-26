@@ -1,22 +1,33 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 export async function fetchApi<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+  } catch {
+    throw new Error("Network error — is the API server running?");
+  }
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    if (response.status === 404) throw new Error("Not found — this resource may have been deleted.");
+    if (response.status >= 500) throw new Error("Server error — please try again later.");
+    const body = await response.text().catch(() => "");
+    throw new Error(body || `Request failed (${response.status})`);
   }
 
   return response.json();
 }
 
 export const api = {
+  getProjects: (limit = 50, offset = 0) => fetchApi(`/projects?limit=${limit}&offset=${offset}`),
+  createProject: (data: { name: string; slug: string; description?: string; repo_url?: string; default_branch?: string }) =>
+    fetchApi(`/projects`, { method: "POST", body: JSON.stringify(data) }),
   getProject: (id: string) => fetchApi(`/projects/${id}`),
   updateProject: (id: string, data: any) => fetchApi(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   getProjectEntities: (id: string, limit = 100) => fetchApi(`/projects/${id}/entities?limit=${limit}`),

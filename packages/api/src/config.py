@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # GitHub webhook
     github_webhook_secret: str = ""
 
-    # CORS
+    # CORS — set CORS_ORIGINS='["https://your-app.vercel.app"]' in production
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # Server

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useState, use } from "react";
 import { History, Terminal, Bot, User, Cpu } from "lucide-react";
+import QueryError from "@/components/query-error";
 
 export default function ActivityPage(props: { params: Promise<{ projectId: string }> }) {
   const params = use(props.params);
@@ -17,10 +18,12 @@ export default function ActivityPage(props: { params: Promise<{ projectId: strin
   const [offset, setOffset] = useState(0);
   const LIMIT = 20; // bigger batch
 
-  const { data: activityRes, isLoading, isFetching } = useQuery({
+  const { data: activityRes, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId, "activity", offset],
     queryFn: () => api.getProjectActivity(projectId, LIMIT, offset),
   });
+
+  if (isError) return <QueryError message={(error as Error)?.message} retry={refetch} />;
 
   const latestActivities = Array.isArray(activityRes?.data) ? activityRes.data : (Array.isArray(activityRes) ? activityRes : []);
   
