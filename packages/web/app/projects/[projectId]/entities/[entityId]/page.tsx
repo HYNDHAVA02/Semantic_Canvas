@@ -117,16 +117,27 @@ export default function EntityDetailPage(props: { params: Promise<{ projectId: s
 
           <div className="p-4 bg-surface-container rounded-lg border border-outline-variant/10 text-sm space-y-2 min-w-48 z-10">
             <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-3">Metadata</p>
-            {entity.metadata && Object.keys(entity.metadata).length > 0 ? (
-               Object.entries(entity.metadata).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 border-b border-outline-variant/5 pb-1 last:border-0 last:pb-0">
-                  <span className="text-on-surface-variant">{k}</span>
-                  <span className="font-medium text-on-surface max-w-[200px] truncate text-right">{String(v)}</span>
-                </div>
-               ))
-            ) : (
-               <p className="text-xs text-on-surface-variant italic">No metadata available</p>
-            )}
+            {(() => {
+              let parsedMetadata = entity.metadata;
+              if (typeof parsedMetadata === 'string') {
+                try {
+                  parsedMetadata = JSON.parse(parsedMetadata);
+                } catch (e) {
+                  // Fallback if parsing fails
+                }
+              }
+              
+              if (parsedMetadata && typeof parsedMetadata === 'object' && Object.keys(parsedMetadata).length > 0) {
+                 return Object.entries(parsedMetadata).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 border-b border-outline-variant/5 pb-1 last:border-0 last:pb-0">
+                    <span className="text-on-surface-variant">{k}</span>
+                    <span className="font-medium text-on-surface max-w-[200px] truncate text-right" title={String(v)}>{String(v)}</span>
+                  </div>
+                 ));
+              } else {
+                 return <p className="text-xs text-on-surface-variant italic">No metadata available</p>;
+              }
+            })()}
           </div>
         </div>
       )}

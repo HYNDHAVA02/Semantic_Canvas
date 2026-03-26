@@ -35,6 +35,7 @@ export default function ProjectLayout(props: {
   ];
 
   const secondaryNav = [
+    { name: "All Projects", href: `/projects`, icon: "arrow_back" },
     { name: "Search", href: `/projects/${projectId}/search`, icon: "search" },
     { name: "Settings", href: `/projects/${projectId}/settings`, icon: "settings" },
   ];
@@ -43,7 +44,9 @@ export default function ProjectLayout(props: {
     <AuthGuard>
       <nav className="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface-container-low flex-col py-6 gap-1 z-50 overflow-y-auto">
         <div className="px-6 mb-8">
-          <span className="text-xl font-bold tracking-tighter text-on-surface">Semantic Canvas</span>
+          <Link href="/projects" className="text-xl font-bold tracking-tighter text-on-surface hover:text-primary transition-colors">
+            Semantic Canvas
+          </Link>
         </div>
         <div className="flex flex-col gap-1">
           {navigation.map((item) => {
@@ -93,6 +96,9 @@ export default function ProjectLayout(props: {
 
       <header className="fixed top-0 right-0 left-0 md:left-64 h-16 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant/15 flex items-center justify-between px-8 transition-all">
         <div className="flex items-center gap-4">
+          <Link href="/projects" className="md:hidden flex items-center">
+            <span className="material-symbols-outlined text-on-surface-variant hover:text-on-surface">arrow_back</span>
+          </Link>
           <span className="material-symbols-outlined text-primary md:hidden cursor-pointer">menu</span>
           <h1 className="text-lg font-bold text-on-surface font-['Inter'] tracking-tight">Project Dashboard</h1>
         </div>

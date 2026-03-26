@@ -44,23 +44,27 @@ async def _local_axon_ingest(payload: dict[str, object]) -> None:
     }
 
     logger.info("Spawning ingestion subprocess for payload: %s", payload_json)
-    proc = await asyncio.create_subprocess_exec(
-        python_exe, "-m", "src.main", payload_json,
-        cwd=str(_INGESTION_PKG_DIR),
-        env=env,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
+    
+    def _run_subprocess():
+        import subprocess
+        return subprocess.run(
+            [python_exe, "-m", "src.main", payload_json],
+            cwd=str(_INGESTION_PKG_DIR),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
 
-    if stdout:
-        logger.info("Ingestion stdout:\n%s", stdout.decode())
-    if stderr:
-        logger.warning("Ingestion stderr:\n%s", stderr.decode())
-    if proc.returncode != 0:
+    result = await asyncio.to_thread(_run_subprocess)
+
+    if result.stdout:
+        logger.info("Ingestion stdout:\n%s", result.stdout)
+    if result.stderr:
+        logger.warning("Ingestion stderr:\n%s", result.stderr)
+    if result.returncode != 0:
         raise RuntimeError(
-            f"Ingestion subprocess exited with code {proc.returncode}: "
-            f"{stderr.decode()}"
+            f"Ingestion subprocess exited with code {result.returncode}: "
+            f"{result.stderr}"
         )
 
 

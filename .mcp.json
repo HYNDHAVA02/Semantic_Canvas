@@ -1,11 +1,11 @@
 {
-    "mcpServers": {
-        "semantic-canvas": {
-            "command": "cmd.exe",
-            "args": [
-                "/c",
-                "C:\\Users\\hyndh\\OneDrive\\Desktop\\semantic-canvas\\semantic-canvas\\packages\\api\\start_mcp.bat"
-            ]
-        }
+  "mcpServers": {
+    "semantic-canvas": {
+      "url": "http://localhost:8000/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer 8FA8qt1V1vqpnzpsV0YTzyaxVsZ9YM4Eh51Rz9ADiOQ",
+        "X-Project-Id": "afcf0001-b9a4-4d48-ae23-a3d54955caa4"
+      }
     }
+  }
 }

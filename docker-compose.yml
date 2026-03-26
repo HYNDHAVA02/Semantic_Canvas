@@ -30,6 +30,8 @@ services:
     build:
       context: .
       dockerfile: packages/api/Dockerfile
+    env_file:
+      - packages/api/.env
     ports:
       - "8000:8000"
     environment:
@@ -50,6 +52,8 @@ services:
     build:
       context: .
       dockerfile: packages/ingestion/Dockerfile
+    env_file:
+      - packages/api/.env
     environment:
       DATABASE_URL: postgresql://canvas:canvas@postgres:5432/semantic_canvas
       EMBEDDING_MODEL: BAAI/bge-small-en-v1.5

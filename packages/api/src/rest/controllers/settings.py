@@ -54,6 +54,54 @@ async def create_token(
     }
 
 
+@router.get("/tokens")
+async def list_tokens(
+    request: Request,
+    project_id: UUID,
+) -> list[dict[str, Any]]:
+    """List all personal API tokens for the project."""
+    pool = request.app.state.db_pool
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, label, created_at, expires_at
+            FROM personal_api_tokens
+            WHERE project_id = $1
+            ORDER BY created_at DESC
+            """,
+            project_id,
+        )
+
+    return [
+        {
+            "id": str(row["id"]),
+            "label": row["label"],
+            "created_at": str(row["created_at"]),
+            "expires_at": str(row["expires_at"]) if row["expires_at"] else None,
+        }
+        for row in rows
+    ]
+
+
+@router.delete("/tokens/{token_id}", status_code=204)
+async def revoke_token(
+    request: Request,
+    project_id: UUID,
+    token_id: UUID,
+) -> None:
+    """Revoke (delete) a personal API token."""
+    pool = request.app.state.db_pool
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            DELETE FROM personal_api_tokens
+            WHERE id = $1 AND project_id = $2
+            """,
+            token_id,
+            project_id,
+        )
+
+
 @router.get("/mcp-config")
 async def mcp_config(
     request: Request,

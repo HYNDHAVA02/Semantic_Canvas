@@ -45,5 +45,6 @@ export const api = {
   getBlastRadius: (projectId: string, entityId: string, depth = 3) => fetchApi(`/projects/${projectId}/blast-radius/${encodeURIComponent(entityId)}?direction=both&depth=${depth}`),
   getMcpConfig: (projectId: string) => fetchApi(`/projects/${projectId}/mcp-config`),
   getTokens: (projectId: string) => fetchApi(`/projects/${projectId}/tokens`),
-  createToken: (projectId: string, label: string) => fetchApi(`/projects/${projectId}/tokens`, { method: "POST", body: JSON.stringify({ label }) })
+  createToken: (projectId: string, label: string) => fetchApi(`/projects/${projectId}/tokens`, { method: "POST", body: JSON.stringify({ label }) }),
+  revokeToken: (projectId: string, tokenId: string) => fetchApi(`/projects/${projectId}/tokens/${tokenId}`, { method: "DELETE" })
 };

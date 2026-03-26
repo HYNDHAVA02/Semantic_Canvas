@@ -60,6 +60,15 @@ export default function SettingsPage(props: { params: Promise<{ projectId: strin
     }
   });
 
+  const revokeTokenMutation = useMutation({
+    mutationFn: (tokenId: string) => api.revokeToken(projectId, tokenId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId, "tokens"] });
+      showToast("Token revoked successfully.");
+    },
+    onError: () => showToast("Failed to revoke token.")
+  });
+
   // 3. Project Settings
   const { data: projectRes, isLoading: projectLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -237,7 +246,13 @@ export default function SettingsPage(props: { params: Promise<{ projectId: strin
                            <td className="px-5 py-3 text-on-surface-variant">{t.created_at ? new Date(t.created_at).toLocaleDateString() : "Just now"}</td>
                            <td className="px-5 py-3 text-on-surface-variant">{t.expires_at ? new Date(t.expires_at).toLocaleDateString() : "Never"}</td>
                            <td className="px-5 py-3 text-right">
-                             <button className="text-xs font-semibold text-tertiary hover:underline px-2 py-1 bg-tertiary/10 rounded">Revoke</button>
+                             <button
+                               onClick={() => revokeTokenMutation.mutate(t.id)}
+                               disabled={revokeTokenMutation.isPending}
+                               className="text-xs font-semibold text-tertiary hover:underline px-2 py-1 bg-tertiary/10 rounded disabled:opacity-50"
+                             >
+                               {revokeTokenMutation.isPending ? "Revoking..." : "Revoke"}
+                             </button>
                            </td>
                          </tr>
                        ))}
