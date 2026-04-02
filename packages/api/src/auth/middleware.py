@@ -7,52 +7,72 @@ Extracts Authorization header and resolves an AuthContext:
 
 This is **permissive** by default. To require auth on specific endpoints,
 check `request.state.auth` in the route handler.
+
+Implemented as a pure ASGI middleware (not BaseHTTPMiddleware) to preserve
+streaming responses such as SSE connections on /mcp/sse.
 """
 
 from __future__ import annotations
 
 import logging
-
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_Scope = dict[str, Any]
+_Receive = Callable[[], Awaitable[dict[str, Any]]]
+_Send = Callable[[dict[str, Any]], Awaitable[None]]
+_ASGIApp = Callable[[_Scope, _Receive, _Send], Awaitable[None]]
 
-class OptionalAuthMiddleware(BaseHTTPMiddleware):
-    """Extract auth context from Authorization header if present."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        """Process the request, optionally resolving auth."""
-        request.state.auth = None
+class OptionalAuthMiddleware:
+    """Extract auth context from Authorization header if present.
 
-        auth_header = request.headers.get("authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return await call_next(request)
+    Pure ASGI middleware — does not wrap the response body, so SSE and
+    other streaming responses work correctly.
+    """
 
-        token = auth_header[7:]  # strip "Bearer "
+    def __init__(self, app: _ASGIApp) -> None:
+        self.app = app
 
-        try:
-            if token.startswith("sc_pat_"):
-                # Personal API Token — validate against DB
-                request.state.auth = await self._resolve_pat(request, token)
-            else:
-                # Assume Firebase JWT
-                request.state.auth = await self._resolve_jwt(token)
-        except Exception:
-            logger.debug("Auth token validation failed, proceeding anonymously", exc_info=True)
+    async def __call__(self, scope: _Scope, receive: _Receive, send: _Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
 
-        return await call_next(request)
+        # Build a lightweight request-like view for header access
+        headers = dict(scope.get("headers", []))
+        auth_header = headers.get(b"authorization", b"").decode()
 
-    async def _resolve_pat(self, request: Request, token: str) -> object | None:
-        """Validate a Personal API Token against the database.
+        # Default: no auth
+        scope["state"] = scope.get("state", {})
+        scope["state"]["auth"] = None
 
-        Returns a dict with user_id, project_id, and role if valid.
-        """
-        pool = getattr(request.app.state, "db_pool", None)
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            try:
+                auth_ctx = await self._resolve_token(scope, token)
+                scope["state"]["auth"] = auth_ctx
+            except Exception:
+                logger.debug(
+                    "Auth token validation failed, proceeding anonymously",
+                    exc_info=True,
+                )
+
+        await self.app(scope, receive, send)
+
+    async def _resolve_token(self, scope: _Scope, token: str) -> object | None:
+        """Resolve a Bearer token to an auth context dict."""
+        if token.startswith("sc_pat_"):
+            return await self._resolve_pat(scope, token)
+        return await self._resolve_jwt(token)
+
+    async def _resolve_pat(self, scope: _Scope, token: str) -> object | None:
+        """Validate a Personal API Token against the database."""
+        # Access the db_pool stored on the ASGI app's state
+        app = scope.get("app")
+        pool = getattr(getattr(app, "state", None), "db_pool", None)
         if not pool:
             return None
 

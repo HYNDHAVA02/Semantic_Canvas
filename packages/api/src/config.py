@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # CORS — set CORS_ORIGINS='["https://your-app.vercel.app"]' in production
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # MCP SSE allowed hosts (DNS rebinding protection, mcp>=1.26)
+    # Wildcard port syntax supported: "localhost:*" matches any localhost port.
+    # In production, add your Cloud Run hostname (e.g. "semantic-canvas-xxx.run.app").
+    mcp_allowed_hosts: list[str] = ["localhost:*", "127.0.0.1:*"]
+
     # Server
     port: int = 8000
     environment: str = "development"  # development | staging | production

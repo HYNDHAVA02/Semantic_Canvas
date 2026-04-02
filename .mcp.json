@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "semantic-canvas": {
+      "type": "sse",
       "url": "http://localhost:8000/mcp/sse",
       "headers": {
         "Authorization": "Bearer 8FA8qt1V1vqpnzpsV0YTzyaxVsZ9YM4Eh51Rz9ADiOQ",

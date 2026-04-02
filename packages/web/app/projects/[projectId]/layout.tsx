@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ReactNode, use } from "react";
+import { usePathname, useParams } from "next/navigation";
+import { ReactNode } from "react";
 import AuthGuard from "@/components/auth-guard";
 import { useAuth } from "@/lib/auth-context";
 
@@ -12,8 +12,8 @@ export default function ProjectLayout(props: {
 }) {
   const { children } = props;
   const pathname = usePathname();
-  const params = use(props.params);
-  const projectId = params.projectId || "403f22ef-a063-42d3-bf6e-8c529eb05c0b";
+  const rawParams = useParams();
+  const projectId = (rawParams?.projectId as string) || "403f22ef-a063-42d3-bf6e-8c529eb05c0b";
   const { user, signOut } = useAuth();
   const userEmail = user && "email" in user ? user.email : null;
   const userInitial = userEmail ? userEmail[0].toUpperCase() : "U";

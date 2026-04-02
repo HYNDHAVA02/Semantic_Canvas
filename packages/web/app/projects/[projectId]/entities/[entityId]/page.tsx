@@ -8,9 +8,9 @@ import { use, useState } from "react";
 import { ArrowLeft, Box, LayoutGrid, Layers, Hexagon, Activity } from "lucide-react";
 
 export default function EntityDetailPage(props: { params: Promise<{ projectId: string; entityId: string }> }) {
-  const params = use(props.params);
-  const projectId = params.projectId;
-  const entityId = params.entityId;
+  const rawParams = useParams();
+  const projectId = rawParams?.projectId as string;
+  const entityId = rawParams?.entityId as string;
 
   // Run blast radius explicitly when triggered
   const [showBlastRadius, setShowBlastRadius] = useState(false);

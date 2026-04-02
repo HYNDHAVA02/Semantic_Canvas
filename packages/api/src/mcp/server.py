@@ -21,7 +21,7 @@ from starlette.responses import Response
 from starlette.routing import Mount, Route
 
 from mcp.server.lowlevel.server import Server
-from mcp.server.sse import SseServerTransport
+from mcp.server.sse import SseServerTransport, TransportSecuritySettings
 from mcp.types import TextContent, Tool
 
 from src.mcp.registry import ToolDefinition, registry
@@ -162,26 +162,36 @@ def init_sse_transport(
     Called during FastAPI lifespan startup, after db_pool and
     embedding_service are available.
     """
+    from src.config import settings
+
     global _sse_transport, _mcp_server  # noqa: PLW0603
-    _sse_transport = SseServerTransport("/mcp/messages")
+    _sse_transport = SseServerTransport(
+        "/messages",
+        security_settings=TransportSecuritySettings(
+            allowed_hosts=settings.mcp_allowed_hosts,
+        ),
+    )
     _mcp_server = create_mcp_server(db_pool, embedding_service)
     logger.info("MCP SSE transport initialized")
 
 
-async def _handle_sse(scope: Any, receive: Any, send: Any) -> None:
-    """ASGI handler for SSE connection (GET /sse)."""
+async def _handle_sse(request: Request) -> Response:
+    """HTTP handler for SSE connection (GET /sse)."""
     assert _sse_transport is not None, "MCP transport not initialized"
     assert _mcp_server is not None, "MCP server not initialized"
-    async with _sse_transport.connect_sse(scope, receive, send) as (read_stream, write_stream):
+    async with _sse_transport.connect_sse(
+        request.scope, request.receive, request._send  # type: ignore[attr-defined]
+    ) as (read_stream, write_stream):
         await _mcp_server.run(
             read_stream,
             write_stream,
             _mcp_server.create_initialization_options(),
         )
+    return Response()
 
 
 async def _handle_messages(scope: Any, receive: Any, send: Any) -> None:
-    """ASGI handler for client messages (POST /messages)."""
+    """Pure ASGI handler for client messages (POST /messages)."""
     assert _sse_transport is not None, "MCP transport not initialized"
     await _sse_transport.handle_post_message(scope, receive, send)
 
@@ -201,8 +211,9 @@ async def _mcp_health(request: Request) -> Response:
 mcp_mount = Mount(
     "/mcp",
     routes=[
-        Route("/sse", endpoint=_handle_sse),
-        Route("/messages", endpoint=_handle_messages, methods=["POST"]),
+        Route("/sse", endpoint=_handle_sse, methods=["GET"]),
+        # handle_post_message is a pure ASGI app — must use Mount, not Route
+        Mount("/messages", app=_handle_messages),
         Route("/health", endpoint=_mcp_health),
     ],
 )

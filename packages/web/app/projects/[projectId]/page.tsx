@@ -7,8 +7,8 @@ import { use } from "react";
 import QueryError from "@/components/query-error";
 
 export default function ProjectOverviewPage(props: { params: Promise<{ projectId: string }> }) {
-  const params = use(props.params);
-  const projectId = params.projectId;
+  const rawParams = useParams();
+  const projectId = rawParams?.projectId as string;
 
   const { data: project, isLoading: prjLoading, isError, error, refetch } = useQuery({
     queryKey: ["project", projectId],
